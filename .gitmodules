@@ -4,5 +4,5 @@
 	branch = tags/release-1.11.0
 [submodule "extern/bmi-cxx"]
 	path = extern/bmi-cxx
-	url = https://github.com/csdms/bmi-cxx.git
+	url = https://gitlab.sh.nextgenwaterprediction.com/NGWPC/nwm-ngen/bmi-cxx.git
 	branch = tags/v2.0
