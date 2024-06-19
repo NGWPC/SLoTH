@@ -25,64 +25,62 @@ class Sloth : public bmi::Bmi {
         */
         Sloth(){};
 
-        virtual void Initialize(std::string config_file);
-        virtual void Update();
-        virtual void UpdateUntil(double time);
-        virtual void Finalize();
+        void Initialize(std::string config_file) override;
+        void Update() override;
+        void UpdateUntil(double time) override;
+        void Finalize() override;
 
         // Model information functions.
-        virtual std::string GetComponentName();
-        virtual int GetInputItemCount();
-        virtual int GetOutputItemCount();
-        virtual std::vector<std::string> GetInputVarNames();
-        virtual std::vector<std::string> GetOutputVarNames();
+        std::string GetComponentName() override;
+        int GetInputItemCount() override;
+        int GetOutputItemCount() override;
+        std::vector<std::string> GetInputVarNames() override;
+        std::vector<std::string> GetOutputVarNames() override;
 
         // Variable information functions
-        virtual int GetVarGrid(std::string name);
-        virtual std::string GetVarType(std::string name);
-        virtual std::string GetVarUnits(std::string name);
-        virtual int GetVarItemsize(std::string name);
-        virtual int GetVarNbytes(std::string name);
-        virtual std::string GetVarLocation(std::string name);
+        int GetVarGrid(std::string name) override;
+        std::string GetVarType(std::string name) override;
+        std::string GetVarUnits(std::string name) override;
+        int GetVarItemsize(std::string name) override;
+        int GetVarNbytes(std::string name) override;
+        std::string GetVarLocation(std::string name) override;
 
-        virtual double GetCurrentTime();
-        virtual double GetStartTime();
-        virtual double GetEndTime();
-        virtual std::string GetTimeUnits();
-        virtual double GetTimeStep();
+        double GetCurrentTime() override;
+        double GetStartTime() override;
+        double GetEndTime() override;
+        std::string GetTimeUnits() override;
+        double GetTimeStep() override;
 
         // Variable getters
-        virtual void GetValue(std::string name, void *dest);
-        virtual void *GetValuePtr(std::string name);
-        virtual void GetValueAtIndices(std::string name, void *dest, int *inds, int count);
+        void GetValue(std::string name, void *dest) override;
+        void *GetValuePtr(std::string name) override;
+        void GetValueAtIndices(std::string name, void *dest, int *inds, int count) override;
 
         // Variable setters
-        virtual void SetValue(std::string name, void *src);
-        virtual void SetValueAtIndices(std::string name, int *inds, int count, void *src);
+        void SetValue(std::string name, void *src) override;
+        void SetValueAtIndices(std::string name, int *inds, int count, void *src) override;
 
         // Grid information functions
-        virtual int GetGridRank(const int grid);
-        virtual int GetGridSize(const int grid);
-        virtual std::string GetGridType(const int grid);
+        int GetGridRank(const int grid) override;
+        int GetGridSize(const int grid) override;
+        std::string GetGridType(const int grid) override;
 
-        virtual void GetGridShape(const int grid, int *shape);
-        virtual void GetGridSpacing(const int grid, double *spacing);
-        virtual void GetGridOrigin(const int grid, double *origin);
+        void GetGridShape(const int grid, int *shape) override;
+        void GetGridSpacing(const int grid, double *spacing) override;
+        void GetGridOrigin(const int grid, double *origin) override;
 
-        virtual void GetGridX(int grid, double *x);
-        virtual void GetGridY(const int grid, double *y);
-        virtual void GetGridZ(const int grid, double *z);
+        void GetGridX(int grid, double *x) override;
+        void GetGridY(const int grid, double *y) override;
+        void GetGridZ(const int grid, double *z) override;
 
-        virtual int GetGridNodeCount(const int grid);
-        virtual int GetGridEdgeCount(const int grid);
-        virtual int GetGridFaceCount(const int grid);
+        int GetGridNodeCount(const int grid) override;
+        int GetGridEdgeCount(const int grid) override;
+        int GetGridFaceCount(const int grid) override;
 
-        virtual void GetGridEdgeNodes(const int grid, int *edge_nodes);
-        virtual void GetGridFaceEdges(const int grid, int *face_edges);
-        virtual void GetGridFaceNodes(const int grid, int *face_nodes);
-        virtual void GetGridNodesPerFace(const int grid, int *nodes_per_face);
-
-
+        void GetGridEdgeNodes(const int grid, int *edge_nodes) override;
+        void GetGridFaceEdges(const int grid, int *face_edges) override;
+        void GetGridFaceNodes(const int grid, int *face_nodes) override;
+        void GetGridNodesPerFace(const int grid, int *nodes_per_face) override;
 
     private:
         double current_model_time = 0.0;
