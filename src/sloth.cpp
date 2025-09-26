@@ -165,7 +165,11 @@ std::string Sloth::GetVarUnits(std::string name){ //v
 
   auto iter = this->var_units.find(name);
   if(iter != this->var_units.end()){
-    return iter->second;
+    const std::string& u = iter->second;
+    // Normalize common "no units" spellings to UDUNITS' dimensionless "1"
+    if (u.empty() || u == "none" || u == "-")
+      return "1";
+    return u;
   }
   throw std::runtime_error("GetVarUnits called for non-existent variable: "+name+" " SOURCE_LOC );
 }
@@ -362,7 +366,11 @@ std::string Sloth::ProcessNameMeta(std::string name){ //v
     tempstr = name.substr(lpos+1,rpos-lpos-1);
     if(tempstr.length()>0){
       units = tempstr;
+      // Normalize common "no units" spellings to UDUNITS' dimensionless "1"
+      if (units.empty() || units == "none" || units == "-")
+        units = "1";
     }
+
     lpos = rpos;
     rpos = rppos;
 
