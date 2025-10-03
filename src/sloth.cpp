@@ -160,16 +160,24 @@ std::string Sloth::GetVarType(std::string name){ //v
   throw std::runtime_error("GetVarType called for non-existent variable: "+name+" " SOURCE_LOC );
 }
 
-std::string Sloth::GetVarUnits(std::string name){ //v
+std::string Sloth::GetVarUnits(std::string name){ // v
   name = this->ResolveInNameAlias(name);
 
+  // Explicit overrides for variables with physical units
+  // to match SMP’s expectations:
+  if (name == "soil_depth_wetting_fronts") return "m";
+  if (name == "global_deficit")            return "m";
+  if (name == "Qb_topmodel")               return "m h^-1";
+  if (name == "Qv_topmodel")               return "m h^-1";
+
   auto iter = this->var_units.find(name);
-  if(iter != this->var_units.end()){
-    const std::string& u = iter->second;
-    // Normalize common "no units" spellings to UDUNITS' dimensionless "1"
-    if (u.empty() || u == "none" || u == "-")
+  if (iter != this->var_units.end()) {
+    // Canonicalize dimensionless
+    std::string u = iter->second;
+    std::transform(u.begin(), u.end(), u.begin(), [](unsigned char c){ return std::tolower(c); });
+    if (u.empty() || u == "none" || u == "unitless" || u == "dimensionless" || u == "-")
       return "1";
-    return u;
+    return iter->second;
   }
   throw std::runtime_error("GetVarUnits called for non-existent variable: "+name+" " SOURCE_LOC );
 }
