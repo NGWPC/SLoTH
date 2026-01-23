@@ -6,6 +6,9 @@
 #include <vector>
 #include <map>
 #include "bmi.hxx"
+#include "vecbuf.hpp"
+
+#include <boost/serialization/access.hpp>
 
 #define BMI_TYPE_NAME_DOUBLE "double"
 #define BMI_TYPE_NAME_FLOAT "float"
@@ -83,6 +86,7 @@ class Sloth : public bmi::Bmi {
         void GetGridNodesPerFace(const int grid, int *nodes_per_face) override;
 
     private:
+        friend class boost::serialization::access;
         double current_model_time = 0.0;
 
         std::map<std::string, std::shared_ptr<void>> var_values;
@@ -93,6 +97,8 @@ class Sloth : public bmi::Bmi {
         std::map<std::string, std::string> var_innames;
         // Number of bytes last stored, or (TODO?) <=0 if passed in by pointer (i.e. we don't own the memory).
         std::map<std::string, int> var_nbytes; 
+        vecbuf<char> m_serialized;
+        uint64_t m_serialized_length;
 
         std::map<std::string,int> type_sizes = {
             {BMI_TYPE_NAME_DOUBLE, sizeof(double)},
@@ -130,6 +136,13 @@ class Sloth : public bmi::Bmi {
         std::string ProcessNameMeta(std::string nameMaybeWithMeta);
         void EnsureAllocatedForByValue(std::string name);
 
+        template<class Archive>
+        void serialize(Archive& ar, const unsigned int version);
+        void new_serialized();
+        void load_serialized(const char* data);
+        void free_serialized();
+
+        inline static bool is_serialization_name(const std::string &name);
 };
 
 extern "C"
