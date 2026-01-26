@@ -532,7 +532,7 @@ void Sloth::serialize(Archive &ar, const unsigned int version) {
       if (inname_it == this->var_innames.end()) {
         props.inname = "";
       } else {
-        props.inname = *inname_it;
+        props.inname = inname_it->second;
       }
       ar & props;
     }
