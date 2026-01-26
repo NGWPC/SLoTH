@@ -359,6 +359,9 @@ std::string Sloth::ProcessNameMeta(std::string name){ //v
   if(this->var_counts.count(name) > 0){
     return name;
   }
+  if (is_serialization_name(name)) {
+    throw std::runtime_error("Attempting to process a name reserved for serialization messaging '" + name + "' " + SOURCE_LOC);
+  }
   // Early-out: if the name passed in is an input alias, will not process metadata, return it.
   if(!this->ResolveInNameAliases(name).empty()){
     return name;
@@ -488,9 +491,7 @@ std::string Sloth::ResolveInNameAlias(std::string name){
 
 std::vector<std::string> Sloth::ResolveInNameAliases(std::string name){
   std::vector<std::string> retval;
-  if (is_serialization_name(name)) {
-    retval.push_back(name);
-  } else {
+  if (!is_serialization_name(name)) {
     for (auto iter = this->var_innames.begin(); iter != this->var_innames.end(); ++iter)
       if (iter->second == name)
         retval.push_back(iter->first);
