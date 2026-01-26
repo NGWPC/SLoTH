@@ -21,6 +21,14 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 
+namespace {
+  const auto SERIALIZATION_STATE = "serialization_state";
+  const auto SERIALIZATION_CREATE = "serialization_create";
+  const auto SERIALIZATION_SIZE = "serialization_size";
+  const auto SERIALIZATION_FREE = "serialization_free";
+  const auto RESET_TIME = "reset_time";
+}
+
 std::string Sloth::GetComponentName(){
   return "Simple Logical Tautology Handler (SLoTH) Model";
 }
@@ -111,12 +119,12 @@ void Sloth::GetValueAtIndices(std::string name, void* dest, int* inds, int count
 }
 
 void* Sloth::GetValuePtr(std::string name){ //v
-  if (name == "serialization_state") {
+  if (name == SERIALIZATION_STATE) {
     if (this->m_serialized_length == 0) {
       throw std::runtime_error("Cannot get the current serialization state before creating one.");
     }
     return (void *)this->m_serialized.data();
-  } else if (name == "serialization_size") {
+  } else if (name == SERIALIZATION_SIZE) {
     return (void *)(&this->m_serialized_length);
   }
   name = this->ResolveInNameAlias(name);
@@ -150,13 +158,13 @@ std::string Sloth::GetVarLocation(std::string name){ //v
 }
 
 int Sloth::GetVarNbytes(std::string name){ //v
-  if (name == "serialization_create" || name == "serialization_size") {
+  if (name == SERIALIZATION_CREATE || name == SERIALIZATION_SIZE) {
     return sizeof(uint64_t);
-  } else if (name == "serialization_state") {
+  } else if (name == SERIALIZATION_STATE) {
     return this->m_serialized_length;
-  } else if (name == "serialization_free") {
+  } else if (name == SERIALIZATION_FREE) {
     return sizeof(int);
-  } else if (name == "reset_size") {
+  } else if (name == RESET_TIME) {
     return sizeof(double);
   }
   name = this->ProcessNameMeta(name);
@@ -173,13 +181,13 @@ int Sloth::GetVarNbytes(std::string name){ //v
 }
 
 std::string Sloth::GetVarType(std::string name){ //v
-  if (name == "serialization_create" || name == "serialization_size") {
+  if (name == SERIALIZATION_CREATE || name == SERIALIZATION_SIZE) {
     return "uint64_t";
-  } else if (name == "serialization_state") {
+  } else if (name == SERIALIZATION_STATE) {
     return "char";
-  } else if (name == "serialization_free") {
+  } else if (name == SERIALIZATION_FREE) {
     return "int";
-  } else if (name == "reset_size") {
+  } else if (name == RESET_TIME) {
     return "double";
   }
   name = this->ProcessNameMeta(name);
@@ -250,20 +258,18 @@ void Sloth::SetValueAtIndices(std::string name, int* inds, int count, void* src)
 }
 
 void Sloth::SetValue(std::string name, void* src){ //v
-  if (name == "serialization_create") {
+  if (name == SERIALIZATION_CREATE) {
     this->new_serialized();
     return;
-  } else if (name == "serialization_state") {
+  } else if (name == SERIALIZATION_STATE) {
     this->load_serialized(static_cast<const char*>(src));
     return;
-  } else if (name == "serialization_free") {
+  } else if (name == SERIALIZATION_FREE) {
     this->free_serialized();
     return;
-  } else if (name == "reset_time") {
+  } else if (name == RESET_TIME) {
     this->current_model_time = this->GetStartTime();
     return;
-  } else if (name == "serialization_size") {
-    throw std::runtime_error("SetValue is not a valid option for \"serialization_size\".");
   }
   // If this is actually destined for an input alias, punt!...
   auto aliases = this->ResolveInNameAliases(name);
@@ -592,9 +598,9 @@ void Sloth::free_serialized() {
 }
 
 bool Sloth::is_serialization_name(const std::string &name) {
-  return name == "serialization_state"
-    || name == "serialization_size"
-    || name == "serialization_create"
-    || name == "serialization_free"
-    || name == "reset_size";
+  return name == SERIALIZATION_STATE
+    || name == SERIALIZATION_SIZE
+    || name == SERIALIZATION_CREATE
+    || name == SERIALIZATION_FREE
+    || name == RESET_TIME;
 }
