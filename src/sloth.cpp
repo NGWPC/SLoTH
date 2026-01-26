@@ -527,7 +527,12 @@ void Sloth::serialize(Archive &ar, const unsigned int version) {
       props.type = this->var_types[value.first];
       props.location = this->var_locations[value.first];
       props.count = this->var_counts[value.first];
-      props.inname = this->var_innames[value.first];
+      auto inname_it = this->var_innames.find(value.first);
+      if (inname_it == this->var_innames.end()) {
+        props.inname = "";
+      } else {
+        props.inname = *inname_it;
+      }
       ar & props;
     }
   }
@@ -547,8 +552,10 @@ void Sloth::serialize(Archive &ar, const unsigned int version) {
       this->var_types[props.name] = props.type;
       this->var_locations[props.name] = props.location;
       this->var_counts[props.name] = props.count;
-      this->var_innames[props.name] = props.inname;
       this->var_nbytes[props.name] = props.nbytes;
+      if (!props.inname.empty()) {
+        this->var_innames[props.name] = props.inname;
+      }
     }
   }
 }
