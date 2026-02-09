@@ -262,7 +262,7 @@ void Sloth::SetValue(std::string name, void* src){ //v
     this->new_serialized();
     return;
   } else if (name == SERIALIZATION_STATE) {
-    this->load_serialized(static_cast<const char*>(src));
+    this->load_serialized(static_cast<char*>(src));
     return;
   } else if (name == SERIALIZATION_FREE) {
     this->free_serialized();
@@ -568,19 +568,26 @@ void Sloth::serialize(Archive &ar, const unsigned int version) {
 }
 
 void Sloth::new_serialized() {
-  this->m_serialized.clear();
+  // remove current data whilst adding space for the final size
+  this->m_serialized.resize(sizeof(uint64_t));
+  // append bytes to store the amount of data archived
   boost::archive::binary_oarchive archive(this->m_serialized);
   try {
     archive << (*this);
     this->m_serialized_length = this->m_serialized.size();
+    // copy size of serialized data minus front size buffer to the beginning of the byte data
+    uint64_t serialized_size = this->m_serialized_length - sizeof(uint64_t);
+    memcpy(this->m_serialized.data(), &serialized_size, sizeof(uint64_t));
   } catch (const std::exception &e) {
     this->m_serialized_length = 0;
     throw;
   }
 }
 
-void Sloth::load_serialized(const char* data) {
-  std::stringstream stream(data);
+void Sloth::load_serialized(char* data) {
+  // grab the size of the data from the beginning of the data stream
+  uint64_t *size = reinterpret_cast<uint64_t *>(data);
+  membuf stream(data + sizeof(uint64_t), *size);
   boost::archive::binary_iarchive archive(stream);
   try {
     archive >> (*this);

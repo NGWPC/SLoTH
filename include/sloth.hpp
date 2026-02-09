@@ -139,7 +139,7 @@ class Sloth : public bmi::Bmi {
         template<class Archive>
         void serialize(Archive& ar, const unsigned int version);
         void new_serialized();
-        void load_serialized(const char* data);
+        void load_serialized(char* data);
         void free_serialized();
 
         inline static bool is_serialization_name(const std::string &name);
