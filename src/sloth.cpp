@@ -586,8 +586,10 @@ void Sloth::new_serialized() {
 
 void Sloth::load_serialized(char* data) {
   // grab the size of the data from the beginning of the data stream
-  uint64_t *size = reinterpret_cast<uint64_t *>(data);
-  membuf stream(data + sizeof(uint64_t), *size);
+  uint64_t size;
+  memcpy(&size, data, sizeof(uint64_t));
+  // serialized data starts after the size header
+  membuf stream(data + sizeof(uint64_t), size);
   boost::archive::binary_iarchive archive(stream);
   try {
     archive >> (*this);
