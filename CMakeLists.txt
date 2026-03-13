@@ -27,6 +27,15 @@ include_directories(PRIVATE include)
 include_directories(PRIVATE extern/bmi-cxx)
 #target_include_directories(slothmodel PRIVATE ../bmi-cxx/ )
 
+# -----------------------------------------------------------------------------
+# Find the Boost library and configure usage
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME OFF)
+find_package(Boost 1.79.0 REQUIRED COMPONENTS serialization)
+
+target_link_libraries(slothmodel PRIVATE Boost::serialization)
+
 set_target_properties(slothmodel PROPERTIES VERSION ${PROJECT_VERSION})
 
 set_target_properties(slothmodel PROPERTIES PUBLIC_HEADER include/sloth.hpp)
