@@ -4,6 +4,7 @@
 // ^ Credit https://www.decompile.com/cpp/faq/file_and_line_error_string.htm
 
 #include "sloth.hpp"
+#include "varprops.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -13,7 +14,20 @@
 #include <map>
 #include <set>
 #include <limits>
+#include <sstream>
 //#include <iostream>
+
+#include <boost/serialization/serialization.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+
+namespace {
+  const auto SERIALIZATION_STATE = "serialization_state";
+  const auto SERIALIZATION_CREATE = "serialization_create";
+  const auto SERIALIZATION_SIZE = "serialization_size";
+  const auto SERIALIZATION_FREE = "serialization_free";
+  const auto RESET_TIME = "reset_time";
+}
 
 std::string Sloth::GetComponentName(){
   return "Simple Logical Tautology Handler (SLoTH) Model";
@@ -105,6 +119,14 @@ void Sloth::GetValueAtIndices(std::string name, void* dest, int* inds, int count
 }
 
 void* Sloth::GetValuePtr(std::string name){ //v
+  if (name == SERIALIZATION_STATE) {
+    if (this->m_serialized_length == 0) {
+      throw std::runtime_error("Cannot get the current serialization state before creating one.");
+    }
+    return (void *)this->m_serialized.data();
+  } else if (name == SERIALIZATION_SIZE) {
+    return (void *)(&this->m_serialized_length);
+  }
   name = this->ResolveInNameAlias(name);
 
   auto iter = this->var_values.find(name);
@@ -136,6 +158,15 @@ std::string Sloth::GetVarLocation(std::string name){ //v
 }
 
 int Sloth::GetVarNbytes(std::string name){ //v
+  if (name == SERIALIZATION_CREATE || name == SERIALIZATION_SIZE) {
+    return sizeof(uint64_t);
+  } else if (name == SERIALIZATION_STATE) {
+    return this->m_serialized_length;
+  } else if (name == SERIALIZATION_FREE) {
+    return sizeof(int);
+  } else if (name == RESET_TIME) {
+    return sizeof(double);
+  }
   name = this->ProcessNameMeta(name);
   name = this->ResolveInNameAlias(name);
 
@@ -150,6 +181,15 @@ int Sloth::GetVarNbytes(std::string name){ //v
 }
 
 std::string Sloth::GetVarType(std::string name){ //v
+  if (name == SERIALIZATION_CREATE || name == SERIALIZATION_SIZE) {
+    return "uint64_t";
+  } else if (name == SERIALIZATION_STATE) {
+    return "char";
+  } else if (name == SERIALIZATION_FREE) {
+    return "int";
+  } else if (name == RESET_TIME) {
+    return "double";
+  }
   name = this->ProcessNameMeta(name);
   name = this->ResolveInNameAlias(name);
 
@@ -218,6 +258,19 @@ void Sloth::SetValueAtIndices(std::string name, int* inds, int count, void* src)
 }
 
 void Sloth::SetValue(std::string name, void* src){ //v
+  if (name == SERIALIZATION_CREATE) {
+    this->new_serialized();
+    return;
+  } else if (name == SERIALIZATION_STATE) {
+    this->load_serialized(static_cast<char*>(src));
+    return;
+  } else if (name == SERIALIZATION_FREE) {
+    this->free_serialized();
+    return;
+  } else if (name == RESET_TIME) {
+    this->current_model_time = this->GetStartTime();
+    return;
+  }
   // If this is actually destined for an input alias, punt!...
   auto aliases = this->ResolveInNameAliases(name);
   if(!aliases.empty()){
@@ -311,6 +364,9 @@ std::string Sloth::ProcessNameMeta(std::string name){ //v
   // Early-out: if the name passed is already known, it can be assumed that it has no metadata--return it.
   if(this->var_counts.count(name) > 0){
     return name;
+  }
+  if (is_serialization_name(name)) {
+    throw std::runtime_error("Attempting to process a name reserved for serialization messaging '" + name + "' " + SOURCE_LOC);
   }
   // Early-out: if the name passed in is an input alias, will not process metadata, return it.
   if(!this->ResolveInNameAliases(name).empty()){
@@ -427,6 +483,9 @@ std::string Sloth::ProcessNameMeta(std::string name){ //v
 
 std::string Sloth::ResolveInNameAlias(std::string name){
   //TODO: Make a shortcut reverse map for this case?
+  if (is_serialization_name(name)) {
+      return name;
+  }
   std::string retval = name;
   for (auto iter = this->var_innames.begin(); iter != this->var_innames.end(); ++iter)
     if (iter->second == name){
@@ -438,9 +497,11 @@ std::string Sloth::ResolveInNameAlias(std::string name){
 
 std::vector<std::string> Sloth::ResolveInNameAliases(std::string name){
   std::vector<std::string> retval;
-  for (auto iter = this->var_innames.begin(); iter != this->var_innames.end(); ++iter)
-    if (iter->second == name)
-      retval.push_back(iter->first);
+  if (!is_serialization_name(name)) {
+    for (auto iter = this->var_innames.begin(); iter != this->var_innames.end(); ++iter)
+      if (iter->second == name)
+        retval.push_back(iter->first);
+  }
   return retval;
 }
 
@@ -452,4 +513,103 @@ void Sloth::EnsureAllocatedForByValue(std::string name){
     nbytes = this->var_nbytes[name] = this->ComputeVarNbytes(name);
     this->var_values.emplace(name, std::shared_ptr<void>(std::malloc(nbytes), std::free));
   }
+}
+
+template<class Archive>
+void Sloth::serialize(Archive &ar, const unsigned int version) {
+  ar & this->current_model_time;
+
+  // store the current number of items
+  int var_size = this->var_values.size();
+  ar & var_size;
+
+  VariableProps props;
+  // if saving, just loop through current values and store them
+  if (Archive::is_saving::value) {
+    for (auto const &value : this->var_values) {
+      props.name = value.first;
+      props.value = value.second;
+      props.nbytes = this->var_nbytes[value.first];
+      props.units = this->var_units[value.first];
+      props.type = this->var_types[value.first];
+      props.location = this->var_locations[value.first];
+      props.count = this->var_counts[value.first];
+      auto inname_it = this->var_innames.find(value.first);
+      if (inname_it == this->var_innames.end()) {
+        props.inname = "";
+      } else {
+        props.inname = inname_it->second;
+      }
+      ar & props;
+    }
+  }
+  // if loading, clear the current data and load as many values as were said to be stored
+  else {
+    this->var_values.clear();
+    this->var_units.clear();
+    this->var_types.clear();
+    this->var_locations.clear();
+    this->var_counts.clear();
+    this->var_innames.clear();
+    this->var_nbytes.clear();
+    while (--var_size >= 0) {
+      ar & props;
+      this->var_values[props.name] = props.value;
+      this->var_units[props.name] = props.units;
+      this->var_types[props.name] = props.type;
+      this->var_locations[props.name] = props.location;
+      this->var_counts[props.name] = props.count;
+      this->var_nbytes[props.name] = props.nbytes;
+      if (!props.inname.empty()) {
+        this->var_innames[props.name] = props.inname;
+      }
+    }
+  }
+}
+
+void Sloth::new_serialized() {
+  // remove current data whilst adding space for the final size
+  this->m_serialized.resize(sizeof(uint64_t));
+  // append bytes to store the amount of data archived
+  boost::archive::binary_oarchive archive(this->m_serialized);
+  try {
+    archive << (*this);
+    this->m_serialized_length = this->m_serialized.size();
+    // copy size of serialized data minus front size buffer to the beginning of the byte data
+    uint64_t serialized_size = this->m_serialized_length - sizeof(uint64_t);
+    memcpy(this->m_serialized.data(), &serialized_size, sizeof(uint64_t));
+  } catch (const std::exception &e) {
+    this->m_serialized_length = 0;
+    throw;
+  }
+}
+
+void Sloth::load_serialized(char* data) {
+  // grab the size of the data from the beginning of the data stream
+  uint64_t size;
+  memcpy(&size, data, sizeof(uint64_t));
+  // serialized data starts after the size header
+  membuf stream(data + sizeof(uint64_t), size);
+  boost::archive::binary_iarchive archive(stream);
+  try {
+    archive >> (*this);
+  } catch (const std::exception &e) {
+    // possible logging when implemented
+    throw;
+  }
+  this->free_serialized();
+}
+
+void Sloth::free_serialized() {
+  this->m_serialized.clear();
+  this->m_serialized.shrink_to_fit();
+  this->m_serialized_length = 0;
+}
+
+bool Sloth::is_serialization_name(const std::string &name) {
+  return name == SERIALIZATION_STATE
+    || name == SERIALIZATION_SIZE
+    || name == SERIALIZATION_CREATE
+    || name == SERIALIZATION_FREE
+    || name == RESET_TIME;
 }
