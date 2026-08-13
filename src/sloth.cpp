@@ -4,7 +4,6 @@
 // ^ Credit https://www.decompile.com/cpp/faq/file_and_line_error_string.htm
 
 #include "sloth.hpp"
-#include "varprops.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -20,6 +19,8 @@
 #include <boost/serialization/serialization.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
 
 namespace {
   const auto SERIALIZATION_STATE = "serialization_state";
@@ -519,50 +520,33 @@ template<class Archive>
 void Sloth::serialize(Archive &ar, const unsigned int version) {
   ar & this->current_model_time;
 
-  // store the current number of items
-  int var_size = this->var_values.size();
-  ar & var_size;
+  // serialize non-pointer maps
+  ar & this->var_units;
+  ar & this->var_types;
+  ar & this->var_locations;
+  ar & this->var_counts;
+  ar & this->var_innames;
+  ar & this->var_nbytes;
 
-  VariableProps props;
-  // if saving, just loop through current values and store them
+  // serialize value pointers
+  std::map<std::string, std::vector<char>> all_values;
   if (Archive::is_saving::value) {
-    for (auto const &value : this->var_values) {
-      props.name = value.first;
-      props.value = value.second;
-      props.nbytes = this->var_nbytes[value.first];
-      props.units = this->var_units[value.first];
-      props.type = this->var_types[value.first];
-      props.location = this->var_locations[value.first];
-      props.count = this->var_counts[value.first];
-      auto inname_it = this->var_innames.find(value.first);
-      if (inname_it == this->var_innames.end()) {
-        props.inname = "";
-      } else {
-        props.inname = inname_it->second;
-      }
-      ar & props;
+    for (const auto& value_it : this->var_values) {
+      size_t nbytes = this->var_nbytes.at(value_it.first);
+      std::vector<char> values;
+      values.resize(nbytes);
+      memcpy(values.data(), value_it.second.get(), nbytes);
+      all_values[value_it.first] = values;
     }
-  }
-  // if loading, clear the current data and load as many values as were said to be stored
-  else {
+    ar & all_values;
+  } else { // loading
+    ar & all_values;
     this->var_values.clear();
-    this->var_units.clear();
-    this->var_types.clear();
-    this->var_locations.clear();
-    this->var_counts.clear();
-    this->var_innames.clear();
-    this->var_nbytes.clear();
-    while (--var_size >= 0) {
-      ar & props;
-      this->var_values[props.name] = props.value;
-      this->var_units[props.name] = props.units;
-      this->var_types[props.name] = props.type;
-      this->var_locations[props.name] = props.location;
-      this->var_counts[props.name] = props.count;
-      this->var_nbytes[props.name] = props.nbytes;
-      if (!props.inname.empty()) {
-        this->var_innames[props.name] = props.inname;
-      }
+    for (const auto& value_it : all_values) {
+      size_t nbytes = this->var_nbytes.at(value_it.first);
+      std::shared_ptr<void> value{std::malloc(nbytes), std::free};
+      memcpy(value.get(), value_it.second.data(), nbytes);
+      this->var_values[value_it.first] = value;
     }
   }
 }
