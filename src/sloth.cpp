@@ -556,8 +556,9 @@ void Sloth::new_serialized() {
   // remove current data whilst adding space for the final size
   this->m_serialized.clear();
   OStreamType stream(this->m_serialized);
-  for (int i = 0; i < sizeof(HeaderType); ++i)
-    stream << '\0';
+  // make room for header info
+  HeaderType header;
+  stream.write(reinterpret_cast<const char*>(&header), sizeof(HeaderType));
   // append bytes to store the amount of data archived
   boost::archive::binary_oarchive archive(stream);
   try {
