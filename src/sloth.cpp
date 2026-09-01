@@ -557,8 +557,8 @@ void Sloth::new_serialized() {
   this->m_serialized.clear();
   OStreamType stream(this->m_serialized);
   // make room for header info
-  HeaderType header;
-  stream.write(reinterpret_cast<const char*>(&header), sizeof(HeaderType));
+  HeaderType serialized_size;
+  stream.write(reinterpret_cast<const char*>(&serialized_size), sizeof(HeaderType));
   // append bytes to store the amount of data archived
   boost::archive::binary_oarchive archive(stream);
   try {
@@ -566,7 +566,7 @@ void Sloth::new_serialized() {
     stream.flush();
     this->m_serialized_length = this->m_serialized.size();
     // copy size of serialized data minus front size buffer to the beginning of the byte data
-    uint64_t serialized_size = this->m_serialized_length - sizeof(HeaderType);
+    serialized_size = this->m_serialized_length - sizeof(HeaderType);
     memcpy(this->m_serialized.data(), &serialized_size, sizeof(HeaderType));
   } catch (const std::exception &e) {
     this->m_serialized_length = 0;
