@@ -28,6 +28,7 @@ namespace {
   const auto SERIALIZATION_SIZE = "serialization_size";
   const auto SERIALIZATION_FREE = "serialization_free";
   const auto RESET_TIME = "reset_time";
+  using HeaderType = uint64_t;
 }
 
 std::string Sloth::GetComponentName(){
@@ -553,15 +554,20 @@ void Sloth::serialize(Archive &ar, const unsigned int version) {
 
 void Sloth::new_serialized() {
   // remove current data whilst adding space for the final size
-  this->m_serialized.resize(sizeof(uint64_t));
+  this->m_serialized.clear();
+  OStreamType stream(this->m_serialized);
+  // make room for header info
+  HeaderType serialized_size;
+  stream.write(reinterpret_cast<const char*>(&serialized_size), sizeof(HeaderType));
   // append bytes to store the amount of data archived
-  boost::archive::binary_oarchive archive(this->m_serialized);
+  boost::archive::binary_oarchive archive(stream);
   try {
     archive << (*this);
+    stream.flush();
     this->m_serialized_length = this->m_serialized.size();
     // copy size of serialized data minus front size buffer to the beginning of the byte data
-    uint64_t serialized_size = this->m_serialized_length - sizeof(uint64_t);
-    memcpy(this->m_serialized.data(), &serialized_size, sizeof(uint64_t));
+    serialized_size = this->m_serialized_length - sizeof(HeaderType);
+    memcpy(this->m_serialized.data(), &serialized_size, sizeof(HeaderType));
   } catch (const std::exception &e) {
     this->m_serialized_length = 0;
     throw;
@@ -570,10 +576,10 @@ void Sloth::new_serialized() {
 
 void Sloth::load_serialized(char* data) {
   // grab the size of the data from the beginning of the data stream
-  uint64_t size;
-  memcpy(&size, data, sizeof(uint64_t));
+  HeaderType size;
+  memcpy(&size, data, sizeof(HeaderType));
   // serialized data starts after the size header
-  membuf stream(data + sizeof(uint64_t), size);
+  membuf stream(data + sizeof(HeaderType), size);
   boost::archive::binary_iarchive archive(stream);
   try {
     archive >> (*this);

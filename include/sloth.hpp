@@ -97,7 +97,7 @@ class Sloth : public bmi::Bmi {
         std::map<std::string, std::string> var_innames;
         // Number of bytes last stored, or (TODO?) <=0 if passed in by pointer (i.e. we don't own the memory).
         std::map<std::string, int> var_nbytes; 
-        vecbuf<char> m_serialized;
+        vecbuf m_serialized;
         uint64_t m_serialized_length;
 
         std::map<std::string,int> type_sizes = {
